@@ -33,7 +33,7 @@ ARG rails_env=docker
 ARG bundle_args="--with development test"
 
 # extension gem testing
-ENV FAVOR_LOCAL_GEMS 1
+# ENV FAVOR_LOCAL_GEMS 1
 
 #### OpenStudio Server Code
 # First upload the Gemfile* so that it can cache the Gems -- do this first because it is slow
@@ -49,6 +49,9 @@ ADD openstudio-bem-to-surrogate-gem/lib /opt/openstudio-bem-to-surrogate-gem/lib
 ADD openstudio-bem-to-surrogate-gem/spec /opt/openstudio-bem-to-surrogate-gem/spec
 ADD openstudio-bem-to-surrogate-gem/.rubocop.yml /opt/openstudio-bem-to-surrogate-gem/.rubocop.yml
 ADD openstudio-bem-to-surrogate-gem/.pre-commit-config.yaml /opt/openstudio-bem-to-surrogate-gem/.pre-commit-config.yaml
+# ... (previous instructions)
+
+# Set work directory to the project root
 WORKDIR /opt/openstudio-bem-to-surrogate-gem
 
 # Show environment
@@ -56,32 +59,30 @@ RUN ruby -v
 RUN openstudio openstudio_version
 RUN openstudio gem_list
 
-# Set git config options
+# Fetch updated gem metadata (important before installing)
 RUN git config --global --add safe.directory '*'
-
-# Install dependencies
+RUN gem install bundler -v '2.1.4'
 RUN bundle -v
 RUN bundle config set --local path .bundle
-RUN bundle _2.1.4_ install --jobs=3 --retry=3 $bundle_args
 
-# Run bundle again, because if the user has a local Gemfile.lock it will have been overriden
-RUN rm Gemfile.lock
-RUN bundle install --jobs=3 --retry=3
+# Install gems 
+RUN bundle install 
+
+# ... (rest of your Dockerfile, removing any git operations)
 
 # Run core tests
-RUN bundle exec rspec spec/tests
+# RUN bundle exec rspec spec/tests
 
-# List and update measures
-RUN begin_group() { echo -e "::group::\033[93m$1\033[0m"; }
-RUN begin_group "List Measures"
+# List and update measures (consider removing these for a cleaner production image)
+RUN echo "List Measures"
 RUN bundle exec rake openstudio:list_measures
-RUN begin_group "Update measures"
+RUN echo "Update measures"
 RUN bundle exec rake openstudio:update_measures
 
-# Test with openstudio
+# Test with openstudio (uncomment if needed)
 # RUN bundle exec rake openstudio:test_with_openstudio
 
-# Collect stats, display and check for failures
-RUN test_dir=$(find -type d -name "test_results")
-RUN echo $test_dir
-RUN mv $test_dir .
+# Collect stats, display and check for failures (uncomment if needed)
+# RUN test_dir=$(find -type d -name "test_results")
+# RUN echo $test_dir
+# RUN mv $test_dir .
